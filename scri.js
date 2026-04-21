@@ -10,12 +10,41 @@ $(document).ready(function () {
     now_playing: "Now Playing Movies",
     upcoming: "Upcoming Movies"
   };
-
+  let lastSearchQ =null;
   let lastScroll = 0;
   let currentPage = 1;
   let totalPages = 1;
   let loadMoreVisible = false;
   let lastPageLoaded = 1;
+
+  function getFavorites() {
+  return JSON.parse(localStorage.getItem("movieFavorites") || "[]");
+    }
+
+  function saveFavorites(favs) {
+      localStorage.setItem("movieFavorites", JSON.stringify(favs));
+    }
+
+    function isFavorite(movieId) {
+      return getFavorites().some(f => f.id === movieId);
+    }
+
+    function toggleFavorite(movie) {
+      let favs = getFavorites();
+      if (isFavorite(movie.id)) {
+        favs = favs.filter(f => f.id !== movie.id);
+      } else {
+        favs.push({
+          id: movie.id,
+          title: movie.title,
+          poster_path: movie.poster_path,
+          overview: movie.overview,
+          vote_average: movie.vote_average,
+          release_date: movie.release_date
+        });
+      }
+      saveFavorites(favs);
+    }
 
 
 
@@ -24,7 +53,7 @@ $(document).ready(function () {
   tomorrow.setDate(tomorrow.getDate() + 1); // tomorrow's date
   tomorrow.setHours(0, 0, 0, 0); // start of the day
 
-  
+
   return movies.filter(m => {
     const release = new Date(m.release_date);
     return !isNaN(release) && release >= tomorrow;
@@ -37,13 +66,13 @@ $(document).ready(function () {
 
 
 
-  //  Load Movies Function 
+  //  Load Movies Function
   function loadMovies(endpoint, page = 1) {
     currentCategory = endpoint;
     loadMoreVisible = false;
 
     $("#homeView").html("<p>Loading...</p>");
-    
+
 
     console.log("Loading movies:", endpoint);
     console.log("Current category:", currentCategory);
@@ -65,7 +94,7 @@ $(document).ready(function () {
             if (endpoint === "upcoming") {
                 moviesToDisplay = filterUpcomingMovies(data.results);
             }
-    
+
             displayMovies(moviesToDisplay);
 
             if (page > 1) {
@@ -75,12 +104,12 @@ $(document).ready(function () {
             }
 
             checkAndShowLoadMore(moviesToDisplay)
-      
+
       },
       error: function () {
         $("#homeView").html("<p>Error loading movies</p>");
       }
-    
+
     });
   }
 
@@ -100,7 +129,7 @@ $(document).ready(function () {
     },
     success: function (data) {
       currentPage = data.page;
-      totalPages = data.total_pages; 
+      totalPages = data.total_pages;
       lastPageLoaded = data.page;
       loadMoreVisible = false;
 
@@ -160,20 +189,28 @@ function appendMovies(movies) {
       ? "https://image.tmdb.org/t/p/w300" + movie.poster_path
       : "https://placehold.co/150?text=No+Image";
 
-    let shortOverview = movie.overview.length > 100 
-      ? movie.overview.substring(0, 100) + "..." 
+    let shortOverview = movie.overview.length > 100
+      ? movie.overview.substring(0, 100) + "..."
       : movie.overview;
+    //heart button
+    const favClass = isFavorite(movie.id) ? "fav-btn active" : "fav-btn";
+    const favIcon = isFavorite(movie.id) ? "&#9829;" : "&#9825;";
+
 
     $(".movie-grid").append(`
       <div class="movie-card" data-id="${movie.id}">
         <img src="${imageUrl}" alt="poster">
+        <button class="${favClass}" data-id="${movie.id}" data-title="${movie.title}"
+                    data-poster="${movie.poster_path || ''}" data-overview="${movie.overview.replace(/"/g, '&quot;')}"
+                    data-rating="${movie.vote_average}" data-date="${movie.release_date}">${favIcon}</button>
         <h3>${movie.title}</h3>
         <p>${shortOverview}</p>
       </div>
     `);
   });
 
-  $(".movie-card").off("click").on("click", function () {
+  $(".movie-card").off("click").on("click", function (e) {
+    if ($(e.target).hasClass("fav-btn")) return;
     lastScroll = $(window).scrollTop();
     let movieId = $(this).data("id");
     loadMovieDetails(movieId);
@@ -193,7 +230,7 @@ $(window).on("scroll", function () {
   const docHeight = $(document).height();
 
   if (scrollTop + windowHeight >= docHeight - 100) {
-    
+
     let canLoadMore = currentPage < totalPages;
 
     if (currentCategory === "upcoming") {
@@ -208,12 +245,12 @@ $(window).on("scroll", function () {
         $("#homeView").append(`<button id="loadMoreBtn">Load More</button>`);
       }
     }
-  } 
+  }
 });
 
 $(document).on("click", "#loadMoreBtn", function () {
   $(this).remove();
-  loadMoreVisible = false; 
+  loadMoreVisible = false;
   loadMoreMovies();
 });
 
@@ -221,7 +258,7 @@ $(document).on("click", "#loadMoreBtn", function () {
 
 
 
-  //  Display Movies 
+  //  Display Movies
   function displayMovies(movies) {
   $("#homeView").removeClass("detailed-view");
   console.log("Displaying movies:", movies);
@@ -232,21 +269,30 @@ $(document).on("click", "#loadMoreBtn", function () {
     <h2 class="category-title">${title}</h2>
     <div class="movie-grid">
   `;
-  
-  
+
+
   movies.forEach(function (movie) {
     let imageUrl = movie.poster_path
       ? "https://image.tmdb.org/t/p/w300" + movie.poster_path
       : "https://placehold.co/150?text=No+Image";
 
-    let shortOverview = movie.overview.length > 100 
-      ? movie.overview.substring(0, 100) + "..." 
+    let shortOverview = movie.overview.length > 100
+      ? movie.overview.substring(0, 100) + "..."
       : movie.overview;
 
+    const favClass = isFavorite(movie.id) ? "fav-btn active" : "fav-btn";
+    const favIcon  = isFavorite(movie.id) ? "&#9829;" : "&#9825;";
 
-    html += ` 
+    html += `
       <div class="movie-card" data-id="${movie.id}">
         <img src="${imageUrl}" alt="poster">
+         <button class="${favClass}"
+              data-id="${movie.id}"
+              data-title="${movie.title}"
+              data-poster="${movie.poster_path || ''}"
+              data-overview="${movie.overview.replace(/"/g, '&quot;')}"
+              data-rating="${movie.vote_average}"
+              data-date="${movie.release_date}">${favIcon}</button>
         <h3>${movie.title}</h3>
         <p>${shortOverview}</p>
       </div>
@@ -313,6 +359,9 @@ function displayMovieDetails(movie) {
   }
 
   let castCrewHtml = renderCastCrew(movie.credits);
+  // heart state for detailed view
+  const favClass = isFavorite(movie.id) ? "fav-btn-detail active" : "fav-btn-detail";
+  const favIcon = isFavorite(movie.id) ? "&#9829; Favorited" : "&#9825; Add to Favoites";
 
   // Build cast list (first 5 actors)
   let castHtml = "";
@@ -332,15 +381,34 @@ function displayMovieDetails(movie) {
       <div class="rating">⭐ ${movie.vote_average}</div>
       <div class="genres">${genreHtml}</div>
       <p>${movie.overview}</p>
+       <button class="${favClass}"
+                  data-id="${movie.id}" data-title="${movie.title}"
+                  data-poster="${movie.poster_path || ''}" data-overview="${movie.overview.replace(/"/g, '&quot;')}"
+                  data-rating="${movie.vote_average}" data-date="${movie.release_date}">${favIcon}</button>
     </div>
   </div>
   ${castCrewHtml} <!-- Places cast and crew outside row for full width -->
 `);
 
-  
+
 }
 
-
+ $(document).on("click", ".fav-btn-detail", function (e) {
+    e.stopPropagation();
+    const btn = $(this);
+    const movie = {
+      id: parseInt(btn.data("id")),
+      title: btn.data("title"),
+      poster_path: btn.data("poster"),
+      overview: btn.data("overview"),
+      vote_average: btn.data("rating"),
+      release_date: btn.data("date")
+    };
+    toggleFavorite(movie);
+    const nowFav = isFavorite(movie.id);
+    btn.html(nowFav ? "&#9829; Favorited" : "&#9825; Add to Favorites");
+    btn.toggleClass("active", nowFav);
+  });
 
 
 
@@ -355,8 +423,8 @@ function renderCastCrew(credits) {
     <div class="cast-section">
       <h3>Cast (${credits.cast.length})</h3>
       <div class="person-row cast-row">
-    `;  
-  
+    `;
+
     credits.cast.forEach((actor, index) => {
     const imgUrl = actor.profile_path
       ? "https://image.tmdb.org/t/p/w185" + actor.profile_path
@@ -382,7 +450,7 @@ function renderCastCrew(credits) {
     <div class="crew-section">
       <h3>Crew (${credits.crew.length})</h3>
       <div class="person-row crew-row">
-    `;  
+    `;
     credits.crew.forEach((member, index) => {
     const imgUrl = member.profile_path
       ? "https://image.tmdb.org/t/p/w185" + member.profile_path
@@ -426,21 +494,22 @@ $(document).on('click', '.view-more-btn', function() {
 
 
 
-  //  Dropdown  
+  //  Dropdown
 
   function handleCategoryChange(category) {
   if (!category) return;
+  lastSearchQ = null;
   currentCategory = category;
   loadMovies(category);
 }
 
-//  Select dropdown 
+//  Select dropdown
 $("#categorySelect").change(function () {
   const selected = $(this).val();
   handleCategoryChange(selected);
 });
 
-//  Dropdown links 
+//  Dropdown links
 $(document).on("click", ".dropdown-content a", function (e) {
   e.preventDefault();
   const category = $(this).data("category");
@@ -476,32 +545,153 @@ dropdown.addEventListener("mouseleave", () => {
 
 $(document).on('click', '#backBtn', function() {
   $("#homeView").removeClass("detailed-view");
-  $("#categorySelect").val(currentCategory);
-  loadMovies(currentCategory, lastPageLoaded);
-
-  setTimeout(() => {
-    $(window).scrollTop(lastScroll);
-  }, 500);
+  if (lastSearchQ) {
+    searchMovies(lastSearchQ);
+  } else {
+    let cat = currentCategory || "popular";
+    loadMovies(cat, lastPageLoaded);
+    setTimeout(() => {
+      $(window).scrollTop(lastScroll);
+    }, 500);
+  }
 });
 
 
+ function searchMovies(query) {
+    if (!query.trim()) return;
+    lastSearchQ = query;
 
-$("#homeBtn").click(function () {
-  $("#searchView").hide();
-  $("#homeView").show();
+    // Show homeView, hide others
+    $("#favView").hide();
+    $("#homeView").show();
+    $("#homeView").removeClass("detailed-view");
+    $("#homeView").html("<p>Searching...</p>");
 
-  $("#homeView").removeClass("detailed-view");
+    $.ajax({
+      url: "https://api.themoviedb.org/3/search/movie",
+      method: "GET",
+      data: { api_key: apiKey, query: query, region: "US" },
+      success: function (data) {
+        if (data.results.length === 0) {
+          $("#homeView").html(`<p style="text-align:center;color:#aaa;">No results found for "<strong>${query}</strong>"</p>`);
+          return;
+        }
+        // Reuse displayMovies, but set a custom title
+        currentCategory = null; // not a category browse
+        let fakeCategory = `Search results for "${query}"`;
 
-  let currentCategory = $("#categorySelect").val() || "popular";
+        let html = `<h2 class="category-title">${fakeCategory}</h2><div class="movie-grid">`;
+        data.results.forEach(function (movie) {
+          let imageUrl = movie.poster_path
+            ? "https://image.tmdb.org/t/p/w300" + movie.poster_path
+            : "https://placehold.co/150?text=No+Image";
+          let shortOverview = (movie.overview || "").length > 100
+            ? movie.overview.substring(0, 100) + "..."
+            : (movie.overview || "No description.");
+          const favClass = isFavorite(movie.id) ? "fav-btn active" : "fav-btn";
+          const favIcon  = isFavorite(movie.id) ? "&#9829;" : "&#9825;";
+          html += `
+            <div class="movie-card" data-id="${movie.id}">
+              <img src="${imageUrl}" alt="poster">
+              <button class="${favClass}" data-id="${movie.id}" data-title="${movie.title}"
+                data-poster="${movie.poster_path || ''}" data-overview="${(movie.overview || "").replace(/"/g, '&quot;')}"
+                data-rating="${movie.vote_average}" data-date="${movie.release_date}">${favIcon}</button>
+              <h3>${movie.title}</h3>
+              <p>${shortOverview}</p>
+            </div>`;
+        });
+        html += "</div>";
+        $("#homeView").html(html);
+
+        $(".movie-card").click(function (e) {
+          if ($(e.target).hasClass("fav-btn")) return;
+          lastScroll = $(window).scrollTop();
+          loadMovieDetails($(this).data("id"));
+        });
+      },
+      error: function () {
+        $("#homeView").html("<p>Error searching movies.</p>");
+      }
+    });
+  }
+
+  // Trigger search on button click
+  $("#searchSubmit").click(function () {
+    searchMovies($("#searchInput").val());
+  });
+
+  // Trigger search on Enter key
+  $("#searchInput").on("keypress", function (e) {
+    if (e.which === 13) searchMovies($(this).val());
+  });
+
+  function displayFavorites() {
+    const favs = getFavorites();
+    $("#homeView").hide();
+    $("#favView").show();
+
+    const grid = $("#favResults").empty();
+
+    if (favs.length === 0) {
+      $("#favEmpty").show();
+      return;
+    }
+    $("#favEmpty").hide();
+
+    favs.forEach(function (movie) {
+      let imageUrl = movie.poster_path
+        ? "https://image.tmdb.org/t/p/w300" + movie.poster_path
+        : "https://placehold.co/150?text=No+Image";
+      let shortOverview = (movie.overview || "").length > 100
+        ? movie.overview.substring(0, 100) + "..."
+        : (movie.overview || "");
+
+      grid.append(`
+        <div class="movie-card fav-card" data-id="${movie.id}">
+          <img src="${imageUrl}" alt="poster">
+          <button class="fav-btn active" data-id="${movie.id}" data-title="${movie.title}"
+            data-poster="${movie.poster_path || ''}" data-overview="${(movie.overview || "").replace(/"/g, '&quot;')}"
+            data-rating="${movie.vote_average}" data-date="${movie.release_date}">&#9829;</button>
+          <h3>${movie.title}</h3>
+          <p>${shortOverview}</p>
+          <button class="remove-fav-btn" data-id="${movie.id}">Remove</button>
+        </div>
+      `);
+    });
+
+    // Click card → detail view
+    $(".fav-card").click(function (e) {
+      if ($(e.target).hasClass("fav-btn") || $(e.target).hasClass("remove-fav-btn")) return;
+      lastScroll = $(window).scrollTop();
+      $("#favView").hide();
+      $("#homeView").show();
+      loadMovieDetails($(this).data("id"));
+    });
+  }
+
+  // Remove from favorites inside fav view
+  $(document).on("click", ".remove-fav-btn", function (e) {
+    e.stopPropagation();
+    const movieId = parseInt($(this).data("id"));
+    let favs = getFavorites().filter(f => f.id !== movieId);
+    saveFavorites(favs);
+    displayFavorites(); // re-render
+  });
+
+  $("#favBtn").click(function () {
+    displayFavorites();
+  });
+  // ============================================================
+
+
+  // Home button
+  $("#homeBtn").click(function () {
+    $("#favView").hide();
+    $("#homeView").show();
+    $("#homeView").removeClass("detailed-view");
+    let cat = currentCategory || "popular";
+    loadMovies(cat);
+  });
+
   loadMovies(currentCategory);
-});
-
-
-
-$("#searchBtn").click(function () {
-  $("#homeView").hide();
-  $("#searchView").show();
-});
-
-loadMovies(currentCategory);
 });
