@@ -287,12 +287,12 @@ $(document).on("click", "#loadMoreBtn", function () {
       <div class="movie-card" data-id="${movie.id}">
         <img src="${imageUrl}" alt="poster">
          <button class="${favClass}"
-              data-id="${movie.id}"
-              data-title="${movie.title}"
-              data-poster="${movie.poster_path || ''}"
-              data-overview="${movie.overview.replace(/"/g, '&quot;')}"
-              data-rating="${movie.vote_average}"
-              data-date="${movie.release_date}">${favIcon}</button>
+          data-id="${movie.id}"
+          data-title="${movie.title}"
+          data-poster="${movie.poster_path || ''}"
+          data-overview="${movie.overview.replace(/"/g, '&quot;')}"
+          data-rating="${movie.vote_average}"
+          data-date="${movie.release_date}">${favIcon}</button>
         <h3>${movie.title}</h3>
         <p>${shortOverview}</p>
       </div>
@@ -394,7 +394,7 @@ function displayMovieDetails(movie) {
 }
 
  $(document).on("click", ".fav-btn-detail", function (e) {
-    e.stopPropagation();
+     e.stopPropagation();
     const btn = $(this);
     const movie = {
       id: parseInt(btn.data("id")),
