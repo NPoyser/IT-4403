@@ -1,6 +1,6 @@
 // ===================== AUTH0 SETUP =====================
 let auth0Client = null;
-let currentUserId = null;  // set after login to Auth0 user's unique ID
+let currentUserId = null;  // null when browsing as guest
 
 async function initAuth0() {
   auth0Client = await auth0.createAuth0Client({
@@ -21,23 +21,23 @@ async function initAuth0() {
 
   if (isAuthenticated) {
     const user = await auth0Client.getUser();
-    currentUserId = user.sub;  // unique ID
-    showApp();
+    currentUserId = user.sub;
+    setLoggedInNav(user.name || user.email);
   } else {
-    showLogin();
+    setLoggedOutNav();
   }
 }
 
-function showLogin() {
-  $("#loginView").show();
-  $(".navbar").hide();
-  $("#homeView").hide();
-  $("#favView").hide();
+function setLoggedInNav(displayName) {
+  $("#loginBtn").hide();
+  $("#logoutBtn").show();
+  $("#navUserName").text(displayName).show();
 }
 
-function showApp() {
-  $("#loginView").hide();
-  $(".navbar").show();
+function setLoggedOutNav() {
+  $("#loginBtn").show();
+  $("#logoutBtn").hide();
+  $("#navUserName").hide();
 }
 
 document.getElementById("loginBtn").addEventListener("click", async () => {
@@ -45,6 +45,7 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async () => {
+  currentUserId = null;
   await auth0Client.logout({
     logoutParams: {
       returnTo: window.location.origin + window.location.pathname
@@ -75,7 +76,7 @@ $(document).ready(function () {
   let loadMoreVisible = false;
   let lastPageLoaded = 1;
 
-  //  Per-user favorites (keyed by Auth0 user ID)
+  // ---- Per-user favorites (keyed by Auth0 user ID) ----
   function getFavKey() {
     return "movieFavorites_" + (currentUserId || "guest");
   }
@@ -94,6 +95,12 @@ $(document).ready(function () {
   // ------------------------------------------------------
 
   function toggleFavorite(movie) {
+    if (!currentUserId) {
+      if (confirm("Log in to save favourites?")) {
+        auth0Client.loginWithRedirect();
+      }
+      return false;  // signal: not saved
+    }
     let favs = getFavorites();
     if (isFavorite(movie.id)) {
       favs = favs.filter(f => f.id !== movie.id);
@@ -108,6 +115,7 @@ $(document).ready(function () {
       });
     }
     saveFavorites(favs);
+    return true;
   }
 
   function filterUpcomingMovies(movies) {
@@ -637,6 +645,12 @@ $(document).ready(function () {
   });
 
   $("#favBtn").click(function () {
+    if (!currentUserId) {
+      if (confirm("Log in to save and view your favourites?")) {
+        auth0Client.loginWithRedirect();
+      }
+      return;
+    }
     displayFavorites();
   });
 
